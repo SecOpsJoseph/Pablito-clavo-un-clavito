@@ -1,0 +1,1366 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>💌 Cartas de Amor</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@400;600;700&family=Playfair+Display:ital,wght@1,400;1,600&family=Lato:wght@300;400&display=swap" rel="stylesheet">
+<style>
+/* ═══════════════════════════════════════════════════
+   CARTAS DE AMOR — style v5
+   Mazo de cartas dentro de un sobre. Cada carta se abre
+   individualmente al tocarla (no salta sola al abrir el sobre).
+   ═══════════════════════════════════════════════════ */
+
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  --rose:      #c0394b;
+  --rose-dk:   #8b1a2a;
+  --rose-dp:   #4a0a14;
+  --blush:     #f7c5cc;
+  --cream:     #fdf6f0;
+  --cream-dk:  #edddd0;
+  --gold:      #d4a853;
+  --gold-dk:   #8a5e10;
+  --ink:       #3b1a1a;
+  --ease-sp:   cubic-bezier(.34,1.56,.64,1);
+  --ease-sm:   cubic-bezier(.4,0,.2,1);
+}
+
+/* ── BODY ── */
+html, body { height: 100%; }
+body {
+  min-height: 100vh;
+  background: radial-gradient(ellipse at 50% 0%, #2d0a0a 0%, #0d0000 75%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  font-family: 'Lato', sans-serif;
+  overflow-x: hidden;
+  color: var(--cream);
+}
+
+/* ── AMBIENT HEARTS ── */
+#hearts-bg {
+  position: fixed; inset: 0;
+  pointer-events: none; z-index: 0; overflow: hidden;
+}
+.bg-heart {
+  position: absolute; bottom: -60px;
+  pointer-events: none; user-select: none;
+  animation: bgRise linear infinite;
+  opacity: 0;
+}
+@keyframes bgRise {
+  0%   { transform: translateY(0) rotate(-10deg) scale(.7); opacity: 0; }
+  8%   { opacity: .55; }
+  90%  { opacity: .15; }
+  100% { transform: translateY(-115vh) rotate(30deg) scale(1.1); opacity: 0; }
+}
+
+/* ── HEART RAIN ── */
+#heart-rain {
+  position: fixed; inset: 0;
+  pointer-events: none; z-index: 85; overflow: hidden;
+}
+.rain-heart {
+  position: absolute; top: -50px;
+  pointer-events: none; user-select: none;
+  animation: rainFall linear infinite;
+  opacity: 0;
+}
+@keyframes rainFall {
+  0%   { transform: translateY(0);       opacity: 0; }
+  6%   {                                 opacity: .8; }
+  92%  {                                 opacity: .2; }
+  100% { transform: translateY(110vh);   opacity: 0; }
+}
+
+/* ── SCENE ──
+   Reservamos espacio fijo arriba para el título (padding-top grande)
+   para que NUNCA quede tapado, sin importar cuánto crezca el sobre. */
+#scene {
+  position: relative; z-index: 10;
+  display: flex; flex-direction: column;
+  align-items: center; gap: 36px;
+  width: 100%;
+  padding: 28px 20px 56px;
+  min-height: 100vh;
+}
+
+/* ── TITLE ──
+   Lo subimos arriba del todo y le damos su propio espacio fijo,
+   independiente del sobre — así jamás se tapa, sin necesidad de
+   animarlo cuando el sobre cambia de tamaño. */
+h1 {
+  font-family: 'Dancing Script', cursive;
+  font-weight: 700;
+  font-size: clamp(1.7rem, 4.6vw, 2.7rem);
+  color: var(--blush);
+  text-shadow: 0 0 24px var(--rose), 0 0 60px rgba(255,0,60,.35);
+  animation: titleGlow 3s ease-in-out infinite;
+  text-align: center;
+  margin-top: 4px;
+}
+@keyframes titleGlow {
+  0%,100% { text-shadow: 0 0 24px var(--rose), 0 0 60px rgba(255,0,60,.35); }
+  50%      { text-shadow: 0 0 40px var(--rose), 0 0 90px rgba(255,0,60,.55); }
+}
+
+/* ══════════════════════════════════════════════════
+   ENVELOPE
+   ══════════════════════════════════════════════════ */
+#envelope-wrap {
+  position: relative;
+  width: min(360px, 88vw);
+  cursor: pointer;
+  outline: none;
+  perspective: 900px;
+  transform: translateY(0);
+  transition: transform .6s var(--ease-sm);
+}
+/* Al abrirse, el sobre se desplaza hacia abajo para que el flap
+   (que rota hacia arriba/atrás en 3D) no tape el título de arriba. */
+#envelope-wrap.envelope-opened {
+  transform: translateY(56px);
+}
+
+#envelope {
+  position: relative;
+  width: 100%;
+  padding-bottom: 62%;   /* aspect ratio ~1.618 */
+  border-radius: 6px;
+}
+
+#envelope-wrap:hover #envelope-inner,
+#envelope-wrap:focus-visible #envelope-inner {
+  filter: brightness(1.12);
+  transform: translateY(-6px);
+}
+
+#envelope-inner {
+  position: absolute; inset: 0;
+  transition: transform .35s var(--ease-sm), filter .35s;
+}
+
+/* ── ENV BACK BODY (base layer) ──
+   BUG FIX (papeles aparecen "abajo" en vez de dentro del sobre):
+   #env-body es quien tiene overflow:hidden, pero el #deck (mazo)
+   vivía como HERMANO de #env-body, no como HIJO suyo — por lo
+   tanto nada lo recortaba y el mazo se veía asomar fuera de los
+   límites reales del sobre (incluso por debajo, fuera del dibujo).
+   Ahora el deck es HIJO de #env-body, así el overflow:hidden de
+   #env-body sí lo clipea correctamente y las cartas sólo se ven
+   "dentro" del sobre, nunca sobresaliendo por fuera. */
+#env-body {
+  position: absolute; inset: 0;
+  background: linear-gradient(160deg, #8b1a2a 0%, #5c0f1a 55%, #3a080f 100%);
+  border-radius: 6px;
+  box-shadow:
+    0 20px 60px rgba(0,0,0,.55),
+    0 0 0 1px rgba(255,255,255,.08),
+    inset 0 1px 0 rgba(255,255,255,.12);
+  z-index: 1;
+  overflow: hidden;
+}
+
+/* ── EDGE MASK ──
+   Tapa una fina línea de "sangrado" (antialiasing) que el navegador
+   dibuja justo en el límite donde overflow:hidden recorta el mazo
+   de cartas contra el borde inferior del sobre. Va POR ENCIMA del
+   deck (z-index mayor) pero por debajo del sello/flap, y es lo
+   bastante angosta para no tapar nada del mazo en sí. */
+#env-edge-mask {
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  height: 4px;
+  background: #3a080f;
+  z-index: 3;
+  pointer-events: none;
+  border-radius: 0 0 6px 6px;
+}
+
+#env-body::before,
+#env-body::after {
+  content: '';
+  position: absolute; inset: 0;
+  pointer-events: none;
+}
+#env-body::before {
+  background: linear-gradient(135deg,
+    rgba(255,255,255,.06) 49.5%,
+    transparent 49.5%
+  );
+}
+#env-body::after {
+  background: linear-gradient(225deg,
+    rgba(255,255,255,.06) 49.5%,
+    transparent 49.5%
+  );
+}
+
+/* ── DECK (mazo de cartas) ──
+   Varias tarjetas apiladas, visibles asomando desde dentro del
+   sobre. Quedan QUIETAS ahí — no saltan a pantalla completa solas.
+   Cada .deck-card es un naipe con su propio borde/sombra para que
+   se note que hay "más de una" debajo.
+   El mazo entero sube un poco al abrir el sobre (peek-rise) pero
+   se queda dentro, esperando a que el usuario toque la de arriba.
+   Ahora vive DENTRO de #env-body (ver HTML) para quedar clipeado.
+── */
+#deck {
+  position: absolute;
+  left: 9%; right: 9%;
+  bottom: 0;
+  height: 88%;
+  z-index: 2;   /* above body bg, below seal/flap (ambos están fuera de env-body) */
+  transform: translateY(100%);
+  transition: none;   /* se activa sólo tras confirmar el estado inicial (ver JS) */
+}
+#deck.deck-ready {
+  transition: transform .75s var(--ease-sm) .05s;
+}
+#deck.deck-rise {
+  /* Antes era 15%, lo que dejaba casi todo el mazo oculto bajo el
+     borde inferior del sobre (sólo translateY(100%) -> 15% sigue
+     siendo mayormente "abajo y afuera"). Lo subimos a 62% para que
+     se note de verdad un puño de cartas asomando dentro del cuerpo,
+     sin salirse del sobre (la propia altura del deck + overflow
+     hidden de #env-body se encargan de no dejarlas escapar arriba). */
+  transform: translateY(62%);
+}
+
+.deck-card {
+  position: absolute;
+  inset: 0;
+  background: var(--cream);
+  border-radius: 3px 3px 0 0;
+  box-shadow: 0 -2px 10px rgba(0,0,0,.25);
+  background-image:
+    repeating-linear-gradient(
+      transparent 0px,
+      transparent 27px,
+      rgba(192,57,75,.13) 27px,
+      rgba(192,57,75,.13) 28px
+    );
+  cursor: pointer;
+  transition: transform .25s var(--ease-sm), box-shadow .25s;
+}
+/* las cartas debajo se ven asomadas/escalonadas, dando la sensación
+   de "varias cartas amontonadas" — cada una un poco más abajo y
+   levemente rotada para que no se vean perfectamente alineadas */
+.deck-card[data-stack="1"] { transform: translateY(0)   rotate(0deg);    z-index: 5; }
+.deck-card[data-stack="2"] { transform: translateY(7px) rotate(-1.4deg); z-index: 4; }
+.deck-card[data-stack="3"] { transform: translateY(13px) rotate(1.6deg); z-index: 3; }
+.deck-card[data-stack="4"] { transform: translateY(18px) rotate(-2.2deg); z-index: 2; }
+
+.deck-card:hover,
+.deck-card:focus-visible {
+  transform: translateY(-4px) rotate(0deg) scale(1.015);
+  box-shadow: 0 -6px 18px rgba(0,0,0,.3);
+  outline: none;
+}
+.deck-card[data-stack="2"]:hover { transform: translateY(3px) rotate(0deg) scale(1.01); }
+.deck-card[data-stack="3"]:hover { transform: translateY(9px) rotate(0deg) scale(1.01); }
+.deck-card[data-stack="4"]:hover { transform: translateY(14px) rotate(0deg) scale(1.01); }
+
+/* pequeña pista visual: una esquina curvada arriba a la derecha
+   de la carta superior, invitando a "tocar para abrir" */
+.deck-card[data-stack="1"]::after {
+  content: '💌';
+  position: absolute;
+  top: 10px; right: 12px;
+  font-size: 1rem;
+  opacity: .55;
+  animation: deckHint 1.8s ease-in-out infinite;
+}
+@keyframes deckHint {
+  0%,100% { transform: translateY(0);   opacity: .45; }
+  50%      { transform: translateY(-3px); opacity: .85; }
+}
+
+/* una vez que una carta fue abierta y cerrada, queda marcada como
+   "usada": se retira visualmente del mazo (ver JS .deck-used) */
+.deck-card.deck-used {
+  transform: translateY(120%) rotate(0deg) !important;
+  box-shadow: none;
+  pointer-events: none;
+  transition: transform .5s var(--ease-sm);
+}
+
+/* ── SEAL ── */
+#env-seal {
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  width: 46px; height: 46px;
+  background: radial-gradient(circle at 38% 32%, #e8c060, #8a5e10);
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.3rem;
+  box-shadow: 0 0 0 3px rgba(255,215,0,.22), 0 5px 18px rgba(0,0,0,.55);
+  z-index: 6;
+  transition: opacity .25s .05s, transform .3s var(--ease-sp);
+  pointer-events: none;
+}
+#env-seal.hidden {
+  opacity: 0;
+  transform: translate(-50%, -50%) scale(0);
+}
+
+/* ── FLAP (front, opens upward) ── */
+#flap {
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 55%;
+  clip-path: polygon(0 0, 100% 0, 50% 74%);
+  background: linear-gradient(175deg, #a02540 0%, #6e1020 100%);
+  border-radius: 6px 6px 0 0;
+
+  transform-origin: top center;
+  transform: rotateX(0deg);
+  transition: transform .7s var(--ease-sm);
+  will-change: transform;
+  z-index: 7;
+  pointer-events: none;
+}
+#flap.flap-open {
+  transform: rotateX(-185deg);
+}
+
+/* ── BUTTONS ── */
+.btn-row {
+  display: flex; gap: 18px; flex-wrap: wrap; justify-content: center;
+  transform: translateY(0);
+  transition: transform .6s var(--ease-sm);
+}
+/* Baja junto con el sobre (misma distancia) cuando éste se abre,
+   para que el sobre no quede montado encima de los botones. */
+.btn-row.envelope-opened {
+  transform: translateY(56px);
+}
+.btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 13px 32px;
+  border: none; border-radius: 50px;
+  font-family: 'Dancing Script', cursive;
+  font-size: 1.25rem; font-weight: 600;
+  letter-spacing: .04em; color: #fff;
+  cursor: pointer; position: relative; overflow: hidden;
+  outline: none;
+  transition: transform .18s, box-shadow .18s;
+}
+.btn:disabled { opacity: .45; cursor: not-allowed; }
+.btn::before {
+  content: '';
+  position: absolute; inset: 0;
+  background: linear-gradient(105deg,
+    transparent 30%, rgba(255,255,255,.28) 50%, transparent 70%);
+  transform: translateX(-120%);
+  transition: transform .45s var(--ease-sm);
+}
+.btn:hover::before { transform: translateX(120%); }
+.btn:hover  { transform: translateY(-3px) scale(1.05); }
+.btn:active { transform: scale(.97); }
+.btn:focus-visible { outline: 3px solid rgba(255,255,255,.45); outline-offset: 3px; }
+
+.btn-open {
+  background: linear-gradient(135deg, #c0394b, #8b1a2a);
+  box-shadow: 0 8px 28px rgba(192,57,75,.55), inset 0 1px 0 rgba(255,255,255,.18);
+}
+.btn-burn {
+  background: linear-gradient(135deg, #ff8c00, #e03000);
+  box-shadow: 0 8px 28px rgba(220,60,0,.55), inset 0 1px 0 rgba(255,255,255,.18);
+}
+
+/* ══════════════════════════════════════════════════
+   LETTER MODAL
+   Animación combinada (pedida por el usuario): la carta que se
+   tocó SALE de su posición dentro del sobre (idea de "se desliza
+   hacia arriba y se agranda hasta el centro") Y ADEMÁS se desdobla
+   como un papel doblado en 3 paneles que se abre antes de mostrar
+   el texto completo. Se construye con dos fases:
+   Fase A (.opening): translate+scale desde el origen real de la
+            carta tocada hasta el centro de la pantalla.
+   Fase B (.unfolded): los 3 paneles (top/middle/bottom) giran en
+            su bisagra (rotateX) para "desplegarse", y sólo entonces
+            se revela el contenido real.
+   ══════════════════════════════════════════════════ */
+#letter-modal {
+  position: fixed; inset: 0; z-index: 100;
+  display: flex; align-items: center; justify-content: center;
+  padding: 20px;
+  opacity: 0; pointer-events: none;
+  transition: opacity .3s;
+}
+#letter-modal.visible { opacity: 1; pointer-events: all; }
+
+#modal-bg {
+  position: absolute; inset: 0;
+  background: rgba(0,0,0,.8);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+/* ── PAPER (shared by modal + burn) ── */
+.paper {
+  background: var(--cream);
+  border-radius: 4px;
+  padding: 48px 48px 44px 68px;
+  box-shadow:
+    0 40px 100px rgba(0,0,0,.7),
+    0 0 0 1px rgba(212,168,83,.28);
+  position: relative;
+}
+
+.paper::before {
+  content: '';
+  position: absolute; inset: 0;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    transparent, transparent 31px,
+    rgba(212,168,83,.18) 31px, rgba(212,168,83,.18) 32px
+  );
+  border-radius: inherit;
+}
+.paper::after {
+  content: '';
+  position: absolute; top: 0; bottom: 0; left: 60px;
+  width: 1.5px;
+  background: rgba(192,57,75,.22);
+  pointer-events: none;
+}
+
+/* ── letter-stage: el contenedor que viaja desde la posición de la
+   carta tocada (fijado por JS con left/top/width/height en px)
+   hasta el centro, donde se agranda a su tamaño final ── */
+#letter-stage {
+  position: fixed;
+  z-index: 2;
+  transform-origin: center center;
+  transition:
+    left .55s var(--ease-sp),
+    top .55s var(--ease-sp),
+    width .55s var(--ease-sp),
+    height .55s var(--ease-sp);
+  perspective: 1400px;
+}
+
+#letter-paper {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  max-height: 88vh;
+  overflow: hidden;
+}
+#letter-paper.scroll-ready {
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(192,57,75,.3) transparent;
+}
+
+/* ── 3 paneles que se "desdoblan" ──
+   Mientras no se haya desplegado, el contenido real está cubierto
+   por los paneles top/bottom que actúan como un papel doblado en
+   tercios (como una carta física). Al desplegar, rotan sobre su
+   bisagra y desaparecen, dejando ver el texto. */
+.fold-panel {
+  position: absolute;
+  left: 0; right: 0;
+  height: 50%;
+  background: linear-gradient(160deg, var(--cream) 0%, var(--cream-dk) 100%);
+  z-index: 5;
+  backface-visibility: hidden;
+  box-shadow: 0 0 14px rgba(0,0,0,.25);
+  transition: transform .6s var(--ease-sm);
+}
+.fold-top {
+  top: 0;
+  transform-origin: top center;
+}
+.fold-bottom {
+  bottom: 0;
+  transform-origin: bottom center;
+}
+#letter-stage.unfolded .fold-top    { transform: rotateX(-130deg); }
+#letter-stage.unfolded .fold-bottom { transform: rotateX(130deg); }
+#letter-stage.unfolded .fold-panel  { transition-delay: .05s; }
+
+/* sello central que cubre el pliegue, como si la carta estuviera
+   cerrada con un lacre — desaparece junto con el desdoblado */
+.fold-seal {
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%) scale(1);
+  width: 44px; height: 44px;
+  background: radial-gradient(circle at 38% 32%, #e8c060, #8a5e10);
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.2rem;
+  box-shadow: 0 0 0 3px rgba(255,215,0,.22), 0 5px 14px rgba(0,0,0,.5);
+  z-index: 6;
+  transition: opacity .3s, transform .3s var(--ease-sm);
+  pointer-events: none;
+}
+#letter-stage.unfolded .fold-seal {
+  opacity: 0;
+  transform: translate(-50%, -50%) scale(0);
+}
+
+.close-btn {
+  position: absolute; top: 12px; right: 14px;
+  background: none; border: none;
+  font-size: 1.35rem; cursor: pointer;
+  color: rgba(139,26,42,.4);
+  padding: 4px 7px; border-radius: 50%;
+  transition: color .2s, background .2s, opacity .2s;
+  line-height: 1;
+  z-index: 8;
+  opacity: 0;
+  pointer-events: none;
+}
+#letter-stage.unfolded .close-btn {
+  opacity: 1;
+  pointer-events: all;
+}
+.close-btn:hover { color: var(--rose); background: rgba(192,57,75,.1); }
+
+/* ── LETTER CONTENT ── */
+.letter-roses {
+  text-align: center; font-size: 1.6rem;
+  margin-bottom: 20px; letter-spacing: .2em;
+}
+.letter-to {
+  display: block;
+  font-family: 'Dancing Script', cursive;
+  font-size: 1.35rem; font-weight: 600;
+  color: var(--rose); margin-bottom: 14px;
+}
+.letter-body {
+  font-family: 'Playfair Display', serif;
+  font-style: italic; font-size: 1.04rem;
+  line-height: 2rem; color: var(--ink);
+  white-space: pre-wrap; word-break: break-word;
+}
+.letter-sign {
+  display: block;
+  font-family: 'Dancing Script', cursive;
+  font-size: 1.4rem; font-weight: 600;
+  color: var(--rose); margin-top: 22px; text-align: right;
+}
+
+/* ── BURST HEARTS ── */
+.burst-heart {
+  position: fixed; pointer-events: none; z-index: 200;
+  user-select: none;
+  animation: burstFly .85s ease-out forwards;
+}
+@keyframes burstFly {
+  0%   { transform: translate(0,0) scale(0); opacity: 1; }
+  60%  { opacity: 1; }
+  100% { transform: translate(var(--tx),var(--ty)) scale(1.4); opacity: 0; }
+}
+
+/* ══════════════════════════════════════════════════
+   BURN OVERLAY
+   ══════════════════════════════════════════════════ */
+#burn-overlay {
+  position: fixed; inset: 0; z-index: 300;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity .3s;
+  background: rgba(0,0,0,.6);
+  backdrop-filter: blur(4px);
+}
+#burn-overlay.active { pointer-events: all; }
+
+#burn-canvas {
+  position: absolute; inset: 0;
+  width: 100%; height: 100%; display: block;
+}
+
+#burn-stage {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  padding: 20px; pointer-events: none;
+}
+
+#burn-paper {
+  position: relative; z-index: 2;
+  width: min(520px, 96vw);
+  max-height: 88vh; overflow: hidden;
+  transform: scale(0);
+  transition: transform .5s var(--ease-sp);
+  clip-path: inset(0 0 0% 0);
+}
+#burn-paper.show { transform: scale(1); }
+#burn-paper.burning {
+  transition: transform .5s var(--ease-sp), filter .3s;
+}
+
+#burn-char {
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  height: 0%;
+  background: linear-gradient(to top,
+    rgba(4,0,0,.98) 0%,
+    rgba(15,4,0,.8) 50%,
+    transparent 100%);
+  pointer-events: none;
+  z-index: 10;
+  transition: none;
+}
+
+#burn-edge {
+  position: absolute;
+  left: 0; right: 0;
+  height: 14px;
+  pointer-events: none;
+  z-index: 11;
+  background: linear-gradient(to bottom,
+    rgba(255,150,0,.9) 0%,
+    rgba(120,30,0,.7) 60%,
+    transparent 100%);
+  filter: blur(1.5px);
+  display: none;
+}
+#burn-edge.show { display: block; }
+
+#burn-hint {
+  position: absolute; bottom: 24px; left: 50%;
+  transform: translateX(-50%);
+  font-size: .75rem; color: rgba(255,200,150,.4);
+  letter-spacing: .12em; pointer-events: none; user-select: none;
+}
+
+/* ── SPARK / FIRE-HEART PARTICLES ── */
+.spark {
+  position: fixed; pointer-events: none; z-index: 400;
+  border-radius: 50%;
+  animation: sparkFly linear forwards;
+}
+@keyframes sparkFly {
+  0%   { transform: translate(0,0) scale(1.2); opacity: 1; }
+  100% { transform: translate(var(--sx),var(--sy)) scale(0); opacity: 0; }
+}
+
+.fire-heart {
+  position: fixed; pointer-events: none; z-index: 410;
+  user-select: none;
+  animation: fireRise ease-out forwards;
+}
+@keyframes fireRise {
+  0%   { transform: translateY(0) scale(0); opacity: 1; }
+  100% { transform: translateY(-120px) scale(1.3); opacity: 0; }
+}
+
+/* ── RESPONSIVE ── */
+@media (max-width: 480px) {
+  .paper { padding: 38px 26px 34px 48px; }
+  .paper::after { left: 42px; }
+  .btn { font-size: 1.1rem; padding: 11px 24px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .01ms !important;
+    transition-duration: .01ms !important;
+  }
+}
+</style>
+</head>
+<body>
+
+  <div id="hearts-bg" aria-hidden="true"></div>
+  <div id="heart-rain" aria-hidden="true"></div>
+
+  <main id="scene">
+    <h1 id="title">💌 Una carta para ti</h1>
+
+    <!-- ENVELOPE -->
+    <div id="envelope-wrap" role="button" tabindex="0" aria-label="Abrir sobre">
+      <div id="envelope">
+        <div id="envelope-inner">
+
+          <!-- Layer 1: body (has overflow:hidden so deck clips inside).
+               BUG FIX: el mazo de cartas ahora vive DENTRO de env-body
+               (antes era hermano), así el overflow:hidden de env-body
+               sí lo recorta y las cartas se ven realmente "dentro" del
+               sobre, nunca asomando por fuera de sus bordes/abajo. -->
+          <div id="env-body">
+            <div id="deck">
+              <div class="deck-card" data-stack="4" data-text="Cuarta carta… escribe aquí tu mensaje."></div>
+              <div class="deck-card" data-stack="3" data-text="Tercera carta… escribe aquí tu mensaje."></div>
+              <div class="deck-card" data-stack="2" data-text="Segunda carta… escribe aquí tu mensaje."></div>
+              <div class="deck-card" data-stack="1" tabindex="0" role="button" aria-label="Abrir carta"
+                   data-text="Amor mío,
+
+Cada día a tu lado es un regalo que atesoro en lo más profundo de mi corazón. Tu sonrisa ilumina mis mañanas y tu voz es la melodía que más me gusta escuchar.
+
+No hay palabras suficientes para describir lo que siento, pero sé esto: eres la persona con quien quiero vivir cada aventura, cada risa y cada momento especial.
+
+Gracias por elegirme, por quererme tal como eres y por hacer de cada día algo extraordinario.
+
+Te amo más de lo que las palabras pueden decir. 🌹"></div>
+            </div>
+            <div id="env-edge-mask" aria-hidden="true"></div>
+          </div>
+
+          <!-- Layer 2: seal (center, above deck, below flap) -->
+          <div id="env-seal">💝</div>
+
+          <!-- Layer 3: flap (top triangle, rotates open) -->
+          <div id="flap"></div>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- BUTTONS -->
+    <div class="btn-row">
+      <button class="btn btn-open" id="btn-open">
+        <span>💌</span> Abrir sobre
+      </button>
+      <button class="btn btn-burn" id="btn-burn">
+        <span>🔥</span> Quemar carta
+      </button>
+    </div>
+  </main>
+
+  <!-- LETTER MODAL -->
+  <div id="letter-modal" role="dialog" aria-modal="true" aria-label="Carta de amor">
+    <div id="modal-bg"></div>
+
+    <div id="letter-stage">
+      <article id="letter-paper" class="paper">
+        <button class="close-btn" id="close-letter" aria-label="Cerrar">✕</button>
+        <div class="letter-roses">🌹 ✨ 🌹</div>
+        <span class="letter-to">Para ti, mi amor…</span>
+        <p class="letter-body" id="letter-text"></p>
+        <span class="letter-sign">— Con todo mi amor 💕</span>
+
+        <!-- paneles de "papel doblado" que cubren el contenido hasta
+             que la animación de desdoblado termina -->
+        <div class="fold-panel fold-top"></div>
+        <div class="fold-panel fold-bottom"></div>
+        <div class="fold-seal">💝</div>
+      </article>
+    </div>
+  </div>
+
+  <!-- BURN OVERLAY -->
+  <div id="burn-overlay" aria-hidden="true">
+    <canvas id="burn-canvas"></canvas>
+    <div id="burn-stage">
+      <article id="burn-paper" class="paper">
+        <div class="letter-roses">🌹 ✨ 🌹</div>
+        <span class="letter-to">Para ti, mi amor…</span>
+        <p class="letter-body" id="burn-text"></p>
+        <span class="letter-sign">— Con todo mi amor 💕</span>
+        <div id="burn-char"></div>
+        <div id="burn-edge"></div>
+      </article>
+    </div>
+    <div id="burn-hint">Clic para cancelar</div>
+  </div>
+
+  <script>
+/* ═══════════════════════════════════════════════════
+   CARTAS DE AMOR — script v5
+   ═══════════════════════════════════════════════════ */
+
+'use strict';
+
+/* ── DOM ── */
+const $  = id => document.getElementById(id);
+
+const heartsEl     = $('hearts-bg');
+const rainEl       = $('heart-rain');
+const envWrap      = $('envelope-wrap');
+const btnRow       = document.querySelector('.btn-row');
+const flapEl       = $('flap');
+const sealEl       = $('env-seal');
+const deckEl       = $('deck');
+const deckCards    = Array.from(document.querySelectorAll('.deck-card'));
+const modal        = $('letter-modal');
+const modalBg      = $('modal-bg');
+const letterStage  = $('letter-stage');
+const letterPaper  = $('letter-paper');
+const letterText   = $('letter-text');
+const closeBtn     = $('close-letter');
+const btnOpen      = $('btn-open');
+const btnBurn      = $('btn-burn');
+const burnOverlay  = $('burn-overlay');
+const burnCanvas   = $('burn-canvas');
+const burnPaper    = $('burn-paper');
+const burnText     = $('burn-text');
+const burnChar     = $('burn-char');
+const burnEdge     = $('burn-edge');
+
+/* ── Utils ── */
+const EMOJIS = ['❤️','🩷','💕','💖','💗','💓','🌹','✨','💝','🫶'];
+const pick = arr => arr[Math.floor(Math.random() * arr.length)];
+const rnd  = (a, b) => a + Math.random() * (b - a);
+
+/* texto que se usará si quemas la carta sin haber abierto ninguna
+   todavía (usa el de la carta superior del mazo, top of stack) */
+function topCardText() {
+  const top = deckCards.find(c => c.dataset.stack === '1' && !c.classList.contains('deck-used'));
+  return top ? top.dataset.text : (deckCards[0] && deckCards[0].dataset.text) || '';
+}
+burnText.textContent = topCardText();
+
+/* ══════════════════════════════════════════════════
+   AMBIENT HEARTS
+   ══════════════════════════════════════════════════ */
+function spawnBgHeart() {
+  const el = document.createElement('span');
+  el.className = 'bg-heart';
+  el.textContent = pick(EMOJIS);
+  el.setAttribute('aria-hidden', 'true');
+  const dur = rnd(7, 14);
+  el.style.cssText = `
+    left:${rnd(0,100)}vw;
+    font-size:${rnd(.8,1.6)}rem;
+    animation-duration:${dur}s;
+    animation-delay:${rnd(0, dur*.5)}s;
+  `;
+  heartsEl.appendChild(el);
+  setTimeout(() => el.remove(), (dur + 2) * 1000);
+}
+for (let i = 0; i < 14; i++) setTimeout(spawnBgHeart, i * 220);
+setInterval(spawnBgHeart, 480);
+
+/* ══════════════════════════════════════════════════
+   HEART RAIN
+   ══════════════════════════════════════════════════ */
+let rainTimer = null;
+
+function spawnRainHeart() {
+  const el = document.createElement('span');
+  el.className = 'rain-heart';
+  el.textContent = pick(EMOJIS);
+  el.setAttribute('aria-hidden', 'true');
+  const dur = rnd(2.2, 4.5);
+  el.style.cssText = `
+    left:${rnd(0,100)}vw;
+    font-size:${rnd(.8,1.3)}rem;
+    animation-duration:${dur}s;
+    animation-delay:${rnd(0,.5)}s;
+  `;
+  rainEl.appendChild(el);
+  setTimeout(() => el.remove(), (dur + 1) * 1000);
+}
+
+const startRain = () => { if (!rainTimer) rainTimer = setInterval(spawnRainHeart, 100); };
+const stopRain  = () => { clearInterval(rainTimer); rainTimer = null; };
+
+/* ══════════════════════════════════════════════════
+   BURST HEARTS
+   ══════════════════════════════════════════════════ */
+function burstHearts(cx, cy, count = 16) {
+  for (let i = 0; i < count; i++) {
+    const el = document.createElement('span');
+    el.className = 'burst-heart';
+    el.textContent = pick(EMOJIS);
+    el.setAttribute('aria-hidden', 'true');
+    const angle = (Math.PI * 2 / count) * i + rnd(-.3, .3);
+    const dist  = rnd(70, 180);
+    const dur   = rnd(.55, .95);
+    el.style.cssText = `
+      left:${cx - 14}px; top:${cy - 14}px;
+      font-size:${rnd(1.1, 1.9)}rem;
+      --tx:${Math.cos(angle)*dist}px;
+      --ty:${Math.sin(angle)*dist}px;
+      animation-duration:${dur}s;
+    `;
+    document.body.appendChild(el);
+    setTimeout(() => el.remove(), dur * 1000 + 100);
+  }
+}
+
+/* ══════════════════════════════════════════════════
+   ENVELOPE
+   El sobre se abre (flap) y el mazo asciende un poco para
+   asomarse — pero las cartas se QUEDAN ahí, quietas. Nada salta
+   solo a pantalla completa: cada carta espera a que la toques.
+   ══════════════════════════════════════════════════ */
+let envelopeOpen = false;
+
+// Garantizamos que el navegador pinte el estado oculto del mazo
+// ANTES de habilitar su transición (evita saltos en la 1ª apertura).
+// IMPORTANTE: estos estilos inline son temporales — sólo existen
+// para fijar el estado "oculto" en el primer pintado. Si se dejan
+// puestos para siempre, ganan por especificidad sobre la regla CSS
+// de la clase ".deck-rise" y el mazo nunca podría subir después
+// (ese era el bug: el deck jamás asomaba al abrir el sobre).
+// Por eso los quitamos (removeProperty) en el mismo frame en que
+// agregamos "deck-ready", dejando que de ahí en más sea el CSS
+// (#deck, #deck.deck-ready, #deck.deck-rise) el único que decide
+// el transform.
+deckEl.style.transition = 'none';
+deckEl.style.transform  = 'translateY(100%)';
+void deckEl.offsetHeight; // fuerza reflow con el estado real pintado
+requestAnimationFrame(() => {
+  deckEl.classList.add('deck-ready');
+  deckEl.style.removeProperty('transition');
+  deckEl.style.removeProperty('transform');
+});
+
+function openEnvelope(onDone) {
+  if (envelopeOpen) { onDone && onDone(); return; }
+  envelopeOpen = true;
+
+  flapEl.classList.add('flap-open');
+  sealEl.classList.add('hidden');
+  // El sobre baja un poco al abrirse, en el mismo gesto que el flap,
+  // para que éste (que rota hacia arriba/atrás en 3D) no tape el
+  // título de arriba.
+  envWrap.classList.add('envelope-opened');
+  btnRow.classList.add('envelope-opened');
+
+  setTimeout(() => {
+    deckEl.classList.add('deck-rise');
+
+    // Esperamos a que el mazo TERMINE realmente de subir y se
+    // asiente en su posición final antes de avisar "listo". Antes
+    // se llamaba onDone() en el mismo instante en que se agregaba
+    // la clase deck-rise (justo al EMPEZAR su transición de 800ms),
+    // así que si el botón "Abrir sobre" encadenaba openCard() poco
+    // después, la carta se leía a medio camino —en movimiento— y
+    // la animación de "viaje hacia el centro" partía de un punto
+    // incorrecto, dando la sensación de que el texto aparecía de
+    // golpe en vez de desplegarse. Ahora usamos transitionend (con
+    // un respaldo por timeout, por si el navegador no lo dispara).
+    let settled = false;
+    const finish = () => {
+      if (settled) return;
+      settled = true;
+      onDone && onDone();
+    };
+    deckEl.addEventListener('transitionend', finish, { once: true });
+    setTimeout(finish, 850); // respaldo de seguridad
+  }, 480);
+}
+
+envWrap.addEventListener('click', e => {
+  // si el click fue directamente sobre una carta del mazo, que sea
+  // esa carta la que maneje su propia apertura (más abajo), no el sobre
+  if (e.target.closest('.deck-card')) return;
+  const r = envWrap.getBoundingClientRect();
+  burstHearts(r.left + r.width / 2, r.top + r.height / 2, 10);
+  openEnvelope();
+});
+envWrap.addEventListener('keydown', e => {
+  if (e.target.closest('.deck-card')) return;
+  if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openEnvelope(); }
+});
+
+/* ══════════════════════════════════════════════════
+   APERTURA INDIVIDUAL DE CARTA
+   Animación combinada pedida:
+   1) La carta tocada viaja desde su posición real dentro del
+      sobre hasta el centro de la pantalla, agrandándose (slide+scale).
+   2) Una vez en el centro, se "desdobla" como un papel en 3 partes
+      (paneles top/bottom giran sobre su bisagra) y SOLO ENTONCES
+      se revela el texto.
+   ══════════════════════════════════════════════════ */
+let activeCard = null;
+
+function openCard(cardEl) {
+  if (modal.classList.contains('visible')) return;
+  activeCard = cardEl;
+
+  letterText.textContent = cardEl.dataset.text || '';
+  letterPaper.classList.remove('scroll-ready');
+  letterStage.classList.remove('unfolded');
+
+  // Fase A: posicionamos #letter-stage EXACTAMENTE donde está la
+  // carta tocada en este momento (coordenadas reales en pantalla),
+  // sin transición, para luego animar hacia el centro/tamaño final.
+  const r = cardEl.getBoundingClientRect();
+  letterStage.style.transition = 'none';
+  letterStage.style.left   = r.left + 'px';
+  letterStage.style.top    = r.top + 'px';
+  letterStage.style.width  = r.width + 'px';
+  letterStage.style.height = r.height + 'px';
+  void letterStage.offsetHeight; // forzar reflow con el origen real
+
+  modal.classList.add('visible');
+  startRain();
+
+  // tamaño/posición final (centrado, tamaño "carta abierta")
+  const finalW = Math.min(520, window.innerWidth * 0.96);
+  const finalH = Math.min(window.innerHeight * 0.82, 640);
+  const finalL = (window.innerWidth  - finalW) / 2;
+  const finalT = (window.innerHeight - finalH) / 2;
+
+  requestAnimationFrame(() => {
+    letterStage.style.transition =
+      'left .55s cubic-bezier(.34,1.56,.64,1), top .55s cubic-bezier(.34,1.56,.64,1), width .55s cubic-bezier(.34,1.56,.64,1), height .55s cubic-bezier(.34,1.56,.64,1)';
+    letterStage.style.left   = finalL + 'px';
+    letterStage.style.top    = finalT + 'px';
+    letterStage.style.width  = finalW + 'px';
+    letterStage.style.height = finalH + 'px';
+
+    // Fase B: cuando termina el viaje al centro, desdoblamos los
+    // paneles y revelamos el contenido real.
+    setTimeout(() => {
+      letterStage.classList.add('unfolded');
+      letterPaper.classList.add('scroll-ready');
+      const cx = finalL + finalW / 2;
+      const cy = finalT + 40;
+      burstHearts(cx, cy, 16);
+    }, 560);
+  });
+}
+
+deckCards.forEach(card => {
+  card.addEventListener('click', e => {
+    e.stopPropagation();
+    if (card.classList.contains('deck-used')) return;
+    if (card.dataset.stack !== '1') return; // sólo la de arriba se abre directo
+    if (!envelopeOpen) {
+      openEnvelope(() => openCard(card));
+    } else {
+      openCard(card);
+    }
+  });
+  card.addEventListener('keydown', e => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      card.click();
+    }
+  });
+});
+
+/* Mantiene los botones reflejando si todavía quedan cartas en el
+   mazo (evita la sensación de "mazo infinito": cuando se acaban,
+   los botones se deshabilitan y lo dicen explícitamente). */
+function remainingCount() {
+  return deckCards.filter(c => !c.classList.contains('deck-used')).length;
+}
+function refreshButtons() {
+  const left = remainingCount();
+  const empty = left === 0;
+  btnOpen.disabled = empty;
+  btnBurn.disabled = empty;
+  btnOpen.querySelector('span + *')?.remove?.();
+  if (empty) {
+    btnOpen.innerHTML = '<span>💌</span> No hay más cartas';
+    btnBurn.innerHTML = '<span>🔥</span> No hay más cartas';
+  }
+}
+
+/* Botón "Abrir sobre": SOLO abre el flip del sobre (deja ver el
+   mazo de cartas asomando). No abre ninguna carta automáticamente
+   — eso queda para cuando el usuario toque la carta de arriba con
+   un gesto aparte, igual que si hubiera abierto el sobre tocándolo
+   directamente. */
+btnOpen.addEventListener('click', () => {
+  if (remainingCount() === 0) return;
+  openEnvelope();
+});
+
+function closeModal() {
+  modal.classList.remove('visible');
+  stopRain();
+  if (activeCard) {
+    // la carta abierta se retira del mazo, dejando ver la siguiente
+    activeCard.classList.add('deck-used');
+    // promovemos a la siguiente carta al puesto "1" para que sea
+    // la próxima en abrirse
+    const remaining = deckCards
+      .filter(c => !c.classList.contains('deck-used'))
+      .sort((a, b) => +a.dataset.stack - +b.dataset.stack);
+    remaining.forEach((c, i) => { c.dataset.stack = String(i + 1); });
+    activeCard = null;
+    refreshButtons();
+  }
+}
+
+modalBg.addEventListener('click', closeModal);
+closeBtn.addEventListener('click',  closeModal);
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    if (modal.classList.contains('visible')) closeModal();
+    else if (burn.active) cancelBurn();
+  }
+});
+
+/* ══════════════════════════════════════════════════
+   BURN EFFECT
+   ══════════════════════════════════════════════════ */
+const ctx = burnCanvas.getContext('2d');
+
+const burn = {
+  active:   false,
+  raf:      null,
+  progress: 0,
+  embers:   [],
+  rect:     null,
+};
+
+function resizeCanvas() {
+  burnCanvas.width  = window.innerWidth;
+  burnCanvas.height = window.innerHeight;
+}
+resizeCanvas();
+window.addEventListener('resize', resizeCanvas);
+
+function spawnSpark(x, y) {
+  const el = document.createElement('span');
+  el.className = 'spark';
+  el.setAttribute('aria-hidden', 'true');
+  const COLS = ['#ff6b00','#ffd700','#ff3300','#ffcc00','#fff8c0'];
+  const angle = rnd(-Math.PI, -Math.PI * .05);
+  const dist  = rnd(25, 110);
+  const dur   = rnd(.3, .65);
+  const sz    = rnd(3, 7);
+  el.style.cssText = `
+    left:${x}px; top:${y}px;
+    width:${sz}px; height:${sz}px;
+    background:${pick(COLS)};
+    box-shadow:0 0 ${sz*2}px ${pick(COLS)};
+    --sx:${Math.cos(angle)*dist}px;
+    --sy:${Math.sin(angle)*dist}px;
+    animation-duration:${dur}s;
+  `;
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), dur * 1000 + 60);
+}
+
+function spawnFireHeart(x, y) {
+  const el = document.createElement('span');
+  el.className = 'fire-heart';
+  el.textContent = pick(['❤️','💕','✨','🔥']);
+  el.setAttribute('aria-hidden', 'true');
+  const dur = rnd(.65, 1.1);
+  el.style.cssText = `
+    left:${x-12}px; top:${y-12}px;
+    font-size:${rnd(.9,1.7)}rem;
+    animation-duration:${dur}s;
+  `;
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), dur * 1000 + 60);
+}
+
+function drawFrame() {
+  ctx.clearRect(0, 0, burnCanvas.width, burnCanvas.height);
+
+  const r = burnPaper.getBoundingClientRect();
+  burn.rect = r;
+  const { progress, embers } = burn;
+  if (!r || r.width === 0) return;
+
+  const burnY = r.bottom - r.height * progress;
+
+  const t = Date.now();
+  for (let x = r.left; x <= r.right; x += 5) {
+    const wave =
+      Math.sin(x * .06 + t * .004) * 10 +
+      Math.cos(x * .12 + t * .007) *  6 +
+      Math.sin(x * .03 + t * .002) *  3;
+    const fy = burnY + wave;
+
+    const g1 = ctx.createRadialGradient(x, fy, 0, x, fy, 30);
+    g1.addColorStop(0,  'rgba(255,140,0,.30)');
+    g1.addColorStop(.5, 'rgba(255,70,0,.11)');
+    g1.addColorStop(1,  'rgba(255,20,0,0)');
+    ctx.fillStyle = g1;
+    ctx.beginPath(); ctx.arc(x, fy, 30, 0, Math.PI*2); ctx.fill();
+
+    const g2 = ctx.createRadialGradient(x, fy, 0, x, fy, 11);
+    g2.addColorStop(0,  'rgba(255,255,180,.95)');
+    g2.addColorStop(.4, 'rgba(255,150,0,.78)');
+    g2.addColorStop(1,  'rgba(255,40,0,0)');
+    ctx.fillStyle = g2;
+    ctx.beginPath(); ctx.arc(x, fy, 11, 0, Math.PI*2); ctx.fill();
+  }
+
+  const ECOLS = ['#ff6b00','#ffd700','#ff3300','#ffcc44','#fffde0'];
+  for (let i = embers.length - 1; i >= 0; i--) {
+    const e = embers[i];
+    e.x  += e.vx;
+    e.y  -= e.vy;
+    e.vx += rnd(-.03, .03);
+    e.vy *= .987;
+    e.life -= .017;
+    if (e.life <= 0 || e.r < .25) { embers.splice(i, 1); continue; }
+    ctx.globalAlpha = e.life * .88;
+    ctx.fillStyle   = e.color;
+    ctx.beginPath(); ctx.arc(e.x, e.y, e.r, 0, Math.PI*2); ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+
+  if (progress < .97 && Math.random() < .5) {
+    embers.push({
+      x: r.left + Math.random() * r.width,
+      y: burnY + rnd(-8, 8),
+      vx: rnd(-.55, .55), vy: rnd(1.0, 2.3),
+      r: rnd(1.5, 4), life: 1,
+      color: pick(ECOLS),
+    });
+  }
+
+  if (progress < .95) {
+    if (Math.random() < .08) spawnSpark(r.left + Math.random() * r.width, burnY);
+    if (Math.random() < .035) spawnFireHeart(r.left + Math.random() * r.width, burnY - 8);
+  }
+
+  burnEdge.style.top = `${burnY - r.top - 7}px`;
+}
+
+function updateChar() {
+  const p = Math.min(burn.progress, 1);
+  burnPaper.style.clipPath = `inset(0 0 ${p * 100}% 0)`;
+  if (burnChar) {
+    burnChar.style.height = `${Math.min(p * 14, 14)}%`;
+  }
+  const shrink = 1 - p * 0.015;
+  burnPaper.style.transform = `scale(${shrink}) rotate(${Math.sin(p*40)*0.4}deg)`;
+}
+
+function burnLoop() {
+  /* Antes .0035 -> tardaba ~4.8s sólo en consumirse, y al no haber
+     ninguna señal clara de progreso, el usuario solía hacer un
+     segundo clic "impaciente" pensando que no había pasado nada.
+     Ese segundo clic caía sobre el overlay de quema (que cubre
+     toda la pantalla, incluida la posición original del botón) y
+     en realidad CANCELABA la quema en curso — dando la falsa
+     sensación de "cartas infinitas, todas iguales". Subimos la
+     velocidad para que el proceso se sienta más inmediato. */
+  burn.progress += .0075;
+  if (burn.progress > 1) burn.progress = 1;
+
+  drawFrame();
+  updateChar();
+
+  if (burn.progress < 1) {
+    burn.raf = requestAnimationFrame(burnLoop);
+  } else {
+    setTimeout(fadeOutBurn, 500);
+  }
+}
+
+function fadeOutBurn() {
+  let op = 1;
+  const tick = () => {
+    op -= .022;
+    burnOverlay.style.opacity = Math.max(op, 0);
+    if (op > 0) requestAnimationFrame(tick);
+    else resetBurn();
+  };
+  requestAnimationFrame(tick);
+}
+
+function resetBurn() {
+  burnOverlay.style.opacity = '0';
+  burnOverlay.classList.remove('active');
+  burnPaper.classList.remove('show', 'burning');
+  burnPaper.style.clipPath  = 'inset(0 0 0% 0)';
+  burnPaper.style.transform = '';
+  burnEdge.classList.remove('show');
+  if (burnChar) burnChar.style.height = '0%';
+  ctx.clearRect(0, 0, burnCanvas.width, burnCanvas.height);
+  burn.active   = false;
+  burn.progress = 0;
+  burn.embers   = [];
+  burn.rect     = null;
+  // Re-habilitamos el botón al terminar/cancelar, salvo que ya no
+  // queden cartas en el mazo (refreshButtons ya lo deja correcto).
+  if (remainingCount() > 0) btnBurn.disabled = false;
+}
+
+function cancelBurn() {
+  cancelAnimationFrame(burn.raf);
+  resetBurn();
+}
+
+function startBurn() {
+  if (burn.active) return;
+  burn.active   = true;
+  burn.progress = 0;
+  burn.embers   = [];
+  burn.startedAt = Date.now();
+
+  // Deshabilitamos el botón mientras la quema está en curso: así
+  // queda claro que el proceso YA empezó (antes el botón seguía
+  // disponible y el usuario, sin saberlo, terminaba cancelando la
+  // quema al volver a tocar la misma zona de la pantalla).
+  btnBurn.disabled = true;
+
+  /* BUG FIX (no se quema realmente / "parecen infinitas y todas
+     iguales"): antes se llamaba closeModal() ANTES de leer
+     activeCard. closeModal() pone activeCard en null Y además
+     promueve otra carta del mazo al puesto "1" — por lo tanto:
+     1) el texto que se quemaba casi siempre era el genérico de
+        relleno (topCardText), nunca el de la carta realmente abierta.
+     2) cada quema "consumía" una carta del mazo en silencio sin
+        mostrar ninguna animación real sobre ella, dando la sensación
+        de que el mazo era infinito / todas las cartas iguales.
+     Ahora: 1) determinamos QUÉ carta se va a quemar ANTES de tocar
+     el modal o el mazo, 2) usamos ese texto, y 3) marcamos esa
+     carta específica como usada (no una promovida al azar). */
+  const burningCard =
+    activeCard ||
+    deckCards.find(c => c.dataset.stack === '1' && !c.classList.contains('deck-used'));
+
+  burnText.textContent = (burningCard && burningCard.dataset.text) || '— la carta ya se quemó —';
+
+  // cerramos el modal SIN dejar que closeModal() decida qué carta
+  // se consume (evitamos su efecto colateral durante la quema)
+  modal.classList.remove('visible');
+  stopRain();
+  activeCard = null;
+
+  openEnvelope();
+
+  burnOverlay.style.opacity = '1';
+  burnOverlay.classList.add('active');
+
+  requestAnimationFrame(() => {
+    burnPaper.classList.add('show', 'burning');
+    burnEdge.classList.add('show');
+    setTimeout(() => {
+      burn.rect = burnPaper.getBoundingClientRect();
+      const rb  = btnBurn.getBoundingClientRect();
+      burstHearts(rb.left + rb.width/2, rb.top + rb.height/2, 18);
+      burn.raf = requestAnimationFrame(burnLoop);
+
+      // la carta que se está quemando se retira del mazo de verdad,
+      // y se reordena el resto para que la siguiente quede arriba —
+      // así el mazo SÍ disminuye con cada quema, en vez de parecer
+      // infinito.
+      if (burningCard) {
+        burningCard.classList.add('deck-used');
+        const remaining = deckCards
+          .filter(c => !c.classList.contains('deck-used'))
+          .sort((a, b) => +a.dataset.stack - +b.dataset.stack);
+        remaining.forEach((c, i) => { c.dataset.stack = String(i + 1); });
+        refreshButtons();
+      }
+    }, 520);
+  });
+}
+
+btnBurn.addEventListener('click', startBurn);
+burnCanvas.addEventListener('click', () => {
+  // Periodo de gracia: justo al iniciar la quema, el overlay pasa a
+  // cubrir toda la pantalla exactamente donde estaba el botón
+  // "Quemar carta". Si el usuario hace un segundo clic ahí mismo
+  // (pensando que el primero no registró, ya que la quema no es
+  // instantánea), ese clic caía sobre #burn-canvas y CANCELABA la
+  // quema en curso — pareciendo que las cartas eran infinitas y
+  // todas iguales, porque nunca llegaban a consumirse de verdad.
+  // Ignoramos cancelaciones durante los primeros 550ms.
+  if (burn.active && (Date.now() - burn.startedAt) > 550) cancelBurn();
+});
+  </script>
+</body>
+</html>
