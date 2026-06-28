@@ -179,28 +179,45 @@ h1 {
   left: 0; right: 0; bottom: 0;
   height: 4px;
   background: #3a080f;
-  z-index: 3;
+  z-index: 5;
   pointer-events: none;
   border-radius: 0 0 6px 6px;
 }
 
-#env-body::before,
-#env-body::after {
-  content: '';
+/* ── SOLAPAS INTERNAS DEL SOBRE (triángulos reales) ──
+   Geometría EXACTA verificada matemáticamente contra el gradiente
+   CSS del archivo original (linear-gradient 135deg/225deg). Esas
+   líneas son a 45° REALES en píxeles, no van de esquina a esquina
+   del rectángulo (que no es cuadrado) — entran por los bordes
+   superior/inferior en 19% y 81% del ancho, no en las esquinas.
+   Por eso arriba/abajo quedan triángulos anchos y bajitos, mientras
+   que izquierda/derecha quedan más angostos y altos (pentágonos que
+   visualmente se ven como triángulos limpios, ya que dos de sus
+   lados son colineales con el borde del sobre).
+   Aquí van sólo 3 (abajo, izquierda, derecha) — el triángulo SUPERIOR
+   se omite a propósito: es el que tapaba el hueco por donde deben
+   asomar las cartas, así que ahí no va ninguna solapa, sólo el fondo
+   de #env-body y, encima, el mazo.
+   Van por ENCIMA del mazo (z-index 4 > deck z-index 2), pero siguen
+   por DEBAJO del sello y el flap. */
+#env-flap-bottom,
+#env-flap-left,
+#env-flap-right {
   position: absolute; inset: 0;
+  z-index: 4;
   pointer-events: none;
 }
-#env-body::before {
-  background: linear-gradient(135deg,
-    rgba(255,255,255,.06) 49.5%,
-    transparent 49.5%
-  );
+#env-flap-bottom {
+  clip-path: polygon(19% 100%, 81% 100%, 50% 50%);
+  background: #6e1020;
 }
-#env-body::after {
-  background: linear-gradient(225deg,
-    rgba(255,255,255,.06) 49.5%,
-    transparent 49.5%
-  );
+#env-flap-left {
+  clip-path: polygon(0 0, 19% 0, 50% 50%, 19% 100%, 0 100%);
+  background: #8b1a2a;
+}
+#env-flap-right {
+  clip-path: polygon(100% 0, 81% 0, 50% 50%, 81% 100%, 100% 100%);
+  background: #7c1524;
 }
 
 /* ── DECK (mazo de cartas) ──
@@ -225,13 +242,10 @@ h1 {
   transition: transform .75s var(--ease-sm) .05s;
 }
 #deck.deck-rise {
-  /* Antes era 15%, lo que dejaba casi todo el mazo oculto bajo el
-     borde inferior del sobre (sólo translateY(100%) -> 15% sigue
-     siendo mayormente "abajo y afuera"). Lo subimos a 62% para que
-     se note de verdad un puño de cartas asomando dentro del cuerpo,
-     sin salirse del sobre (la propia altura del deck + overflow
-     hidden de #env-body se encargan de no dejarlas escapar arriba). */
-  transform: translateY(62%);
+  /* translateY(100%) = mazo totalmente escondido abajo. Bajamos
+     aún más este valor para que la carta de encima asome bien
+     arriba, casi tocando la zona del sello/centro del sobre. */
+  transform: translateY(14%);
 }
 
 .deck-card {
@@ -707,6 +721,9 @@ Gracias por elegirme, por quererme tal como eres y por hacer de cada día algo e
 
 Te amo más de lo que las palabras pueden decir. 🌹"></div>
             </div>
+            <div id="env-flap-bottom" aria-hidden="true"></div>
+            <div id="env-flap-left" aria-hidden="true"></div>
+            <div id="env-flap-right" aria-hidden="true"></div>
             <div id="env-edge-mask" aria-hidden="true"></div>
           </div>
 
@@ -1361,6 +1378,9 @@ burnCanvas.addEventListener('click', () => {
   // Ignoramos cancelaciones durante los primeros 550ms.
   if (burn.active && (Date.now() - burn.startedAt) > 550) cancelBurn();
 });
+  </script>
+  <script>
+    setTimeout(() => { openEnvelope(); }, 500);
   </script>
 </body>
 </html>
